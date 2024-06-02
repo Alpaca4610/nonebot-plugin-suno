@@ -13,6 +13,9 @@
 - 自用的Suno AI作曲插件。
 - 修改自 https://github.com/imyizhang/Suno-API
 
+# 效果
+![](demo1.png) 
+![](demo2.png)
 # 配置文件
 
 必选内容: 在Bot根目录下的.env文件中填入Suno的cookies信息：

@@ -1,6 +1,4 @@
 import asyncio
-import io
-import requests
 import nonebot
 
 from nonebot import on_command

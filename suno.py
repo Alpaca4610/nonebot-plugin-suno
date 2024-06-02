@@ -19,10 +19,10 @@ _ = load_dotenv(find_dotenv())
 
 ua = UserAgent(browsers=["edge"])
 
-get_session_url = "https://clerk.suno.ai/v1/client?_clerk_js_version=4.70.5"
-exchange_token_url = (
-    "https://clerk.suno.ai/v1/client/sessions/{sid}/tokens/api?_clerk_js_version=4.70.0"
+get_session_url = (
+    "https://clerk.suno.com/v1/client/?_clerk_js_version=4.72.0-snapshot.vc141245"
 )
+exchange_token_url = "https://clerk.suno.com/v1/client/sessions/{sid}/tokens/api?_clerk_js_version=4.72.0-snapshot.vc141245"
 
 base_url = "https://studio-api.suno.ai"
 browser_version = "edge101"
@@ -67,6 +67,7 @@ class SongsGen:
         self.retry_time = 0
         # make the song_info_dict global since we can get the lyrics and song name first
         self.song_info_dict = {}
+        self.song_info_dict["song_url_list"] = []
         # now data
         self.now_data = {}
 
@@ -147,40 +148,48 @@ class SongsGen:
         if type(data) == dict:
             if data.get("detail", "") == "Unauthorized":
                 song_name, lyric = self._parse_lyrics(self.now_data[0])
-                self.song_info_dict["id"] = id1
                 self.song_info_dict["song_name"] = song_name
                 self.song_info_dict["lyric"] = lyric
                 self.song_info_dict["song_url"] = (
                     f"https://audiopipe.suno.ai/?item_id={id1}"
                 )
-                # print("Token expired, will sleep 30 seconds and try to download")
+                self.song_info_dict["id"] = id1
+                
+                print("Token expired, will sleep 30 seconds and try to download")
                 time.sleep(30)
-                # print(self.song_info_dict)
+                # Done here
                 return True
             else:
                 data = [data]
+        # renew now data
         self.now_data = data
         try:
-            for d in data:
-                if audio_url := d.get("audio_url"):
+            if all(d.get("audio_url") for d in data):
+                for d in data:
                     song_name, lyric = self._parse_lyrics(d)
-                    self.song_info_dict["id"] = id1
                     self.song_info_dict["song_name"] = song_name
                     self.song_info_dict["lyric"] = lyric
-                    self.song_info_dict["song_url"] = audio_url
-                    return True
+                    self.song_info_dict["song_url_list"].append(d.get("audio_url"))
+                    # for support old api
+                    self.song_info_dict["song_url"] = d.get("audio_url")
+                    self.song_info_dict["id"] = id1
+                return True
             return False
         except Exception as e:
             print(e)
             print("Will sleep 30s and get the music url")
             time.sleep(30)
             song_name, lyric = self._parse_lyrics(self.now_data[0])
-            self.song_info_dict["id"] = id1
             self.song_info_dict["song_name"] = song_name
             self.song_info_dict["lyric"] = lyric
+            self.song_info_dict["song_url_list"] = [
+                f"https://audiopipe.suno.ai/?item_id={id1}",
+                f"https://audiopipe.suno.ai/?item_id={id2}",
+            ]
             self.song_info_dict["song_url"] = (
                 f"https://audiopipe.suno.ai/?item_id={id1}"
             )
+            self.song_info_dict["id"] = id1
             # Done here
             return True
 
@@ -269,8 +278,9 @@ class SongsGen:
             print(e)
             raise
         print(link)
-        start_time = time.time()
+
         while True:
+            start_time = time.time()
             response = requests.get(link)
             access_denied = re.search("<Code>(.*?)</Code>", response.text)
             if access_denied and access_denied.group(1) == 'AccessDenied':
